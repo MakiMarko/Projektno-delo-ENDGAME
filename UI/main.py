@@ -21,6 +21,25 @@ label_video3.grid(row=0, column=2)
 
 caps = [None, None, None]
 
+def combine_boxes(boxA, boxB):
+    x1 = min(boxA[0], boxB[0])
+    y1 = min(boxA[1], boxB[1])
+    x2 = max(boxA[2], boxB[2])
+    y2 = max(boxA[3], boxB[3])
+    return x1, y1, x2, y2
+
+def intersection_over_union(boxA, boxB):
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    if interArea == 0:
+        return 0
+    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+    return iou
 
 def process_frame(cap):
     if cap is not None and cap.isOpened():
@@ -40,18 +59,39 @@ def process_frame(cap):
 
             # Detect objects
             results = model.predict(frame, classes=[0, 1, 3])
-            if results:
-                frame = results[0].plot()
+            person_boxes = []
+            ride_boxes = []
+
+            for result in results:
+                for det in result.boxes:
+                    bbox = det.xyxy[0].cpu().numpy()
+                    if int(det.cls) == 0:
+                        person_boxes.append(bbox)
+                    elif int(det.cls) in [1, 3]:
+                        ride_boxes.append(bbox)
+
+            merged_boxes = []
+
+            for person in person_boxes:
+                for ride in ride_boxes:
+                    if intersection_over_union(person, ride) > 0.1:
+                        combined_box = combine_boxes(person, ride)
+                        merged_boxes.append(combined_box)
+
+            # Draw the merged boxes
+            for box in merged_boxes:
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
             return frame
     return None
-
 
 def update_frames():
     frames = [process_frame(cap) for cap in caps]
     labels = [label_video1, label_video2, label_video3]
     for frame, label in zip(frames, labels):
         if frame is not None:
-            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             photo = ImageTk.PhotoImage(image=image)
             label.config(image=photo)
             label.image = photo
@@ -59,14 +99,12 @@ def update_frames():
     # Schedule the next frame update
     root.after(25, update_frames)
 
-
 def load_video(index):
     video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
     if video_path:
         if caps[index] is not None:
             caps[index].release()  # Release previous capture if exists
         caps[index] = cv2.VideoCapture(video_path)
-
 
 # Create buttons to load videos
 button_load1 = Button(root, text="Load Video 1", command=lambda: load_video(0))
