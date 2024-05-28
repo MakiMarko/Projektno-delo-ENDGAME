@@ -2,9 +2,19 @@ from tkinter import Tk, Button, Label, filedialog
 import cv2
 from PIL import Image, ImageTk
 from ultralytics import YOLO  # Ensure correct import for your YOLO model usage
+import pygame
+import threading
+
 
 # Initialize the YOLO model
 model = YOLO("yolov8n.pt")
+
+pygame.mixer.init()
+# Sound effects paths
+sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
+sound_effect_2 = pygame.mixer.Sound('./sound effects/Tom Screaming Sound Effect (From Tom and Jerry).mp3')
+
+crossed = {}
 
 # Initialize the GUI
 root = Tk()
@@ -18,9 +28,15 @@ label_video2 = Label(root)
 label_video2.grid(row=0, column=1)
 label_video3 = Label(root)
 label_video3.grid(row=0, column=2)
-
+label_message = Label(root, text="")
+label_message.grid(row=3, column=0, columnspan=3, pady=20)
 caps = [None, None, None]
 
+
+def play_sound(sound):
+    pygame.mixer.Sound.play(sound)
+def update_message(msg):
+    label_message.config(text=msg)
 
 def combine_boxes(boxA, boxB):
     x1 = min(boxA[0], boxB[0])
@@ -45,6 +61,7 @@ def intersection_over_union(boxA, boxB):
 
 
 def process_frame(cap, index):
+    global crossed
     if cap is not None and cap.isOpened():
         ret, frame = cap.read()
         if ret:
@@ -89,10 +106,35 @@ def process_frame(cap, index):
                         combined_box = combine_boxes(person, ride)
                         merged_boxes.append(combined_box)
 
-            # Draw the merged boxes
+
             for box in merged_boxes:
                 x1, y1, x2, y2 = map(int, box)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                box_id = id(box)  # Assuming each box can be uniquely identified
+
+                # Initialize tracking if not already done
+                if box_id not in crossed:
+                    crossed[box_id] = {'line1': False, 'line2': False}
+
+                if index == 1:
+                    if x1 < line_position_1 < x2 and not crossed[box_id]['line1']:
+                        print("Playing sound 1 for the first time for object", box_id)
+                        play_sound(sound_effect_1)
+                        crossed[box_id]['line1'] = True
+                    if x1 < line_position_2 > x2 and not crossed[box_id]['line2']:
+                        print("Playing sound 2 for the first time for object", box_id)
+                        play_sound(sound_effect_2)
+                        crossed[box_id]['line2'] = True
+                        update_message("CONA NEVARNOSTI")
+
+                else:
+                    if y2 > line_position  and not crossed[box_id]['line1']:
+                        print("Playing sound 1 for the first time for object", box_id)
+                        play_sound(sound_effect_2)
+                        crossed[box_id]['line1'] = True
+                        update_message("CONA NEVARNOSTI")
+                    else:
+                        update_message("ZUNA")
 
             return frame
     return None
@@ -110,7 +152,6 @@ def update_frames():
 
     # Schedule the next frame update
     root.after(25, update_frames)
-
 
 def load_video(index):
     video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
