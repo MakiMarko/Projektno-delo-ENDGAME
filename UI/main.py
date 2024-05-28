@@ -21,12 +21,14 @@ label_video3.grid(row=0, column=2)
 
 caps = [None, None, None]
 
+
 def combine_boxes(boxA, boxB):
     x1 = min(boxA[0], boxB[0])
     y1 = min(boxA[1], boxB[1])
     x2 = max(boxA[2], boxB[2])
     y2 = max(boxA[3], boxB[3])
     return x1, y1, x2, y2
+
 
 def intersection_over_union(boxA, boxB):
     xA = max(boxA[0], boxB[0])
@@ -41,7 +43,8 @@ def intersection_over_union(boxA, boxB):
     iou = interArea / float(boxAArea + boxBArea - interArea)
     return iou
 
-def process_frame(cap):
+
+def process_frame(cap, index):
     if cap is not None and cap.isOpened():
         ret, frame = cap.read()
         if ret:
@@ -53,8 +56,16 @@ def process_frame(cap):
             line_color = (0, 0, 0)
             line_thickness = 2
             alpha = 0.3
-            line_position = int(height * 0.75)
-            cv2.line(overlay, (0, line_position), (frame.shape[1], line_position), line_color, line_thickness)
+
+            if index == 1:  # Middle video
+                line_position_1 = int(frame.shape[1] * 0.33)
+                line_position_2 = int(frame.shape[1] * 0.66)
+                cv2.line(overlay, (line_position_1, 0), (line_position_1, frame.shape[0]), line_color, line_thickness)
+                cv2.line(overlay, (line_position_2, 0), (line_position_2, frame.shape[0]), line_color, line_thickness)
+            else:  # Other videos
+                line_position = int(height * 0.75)
+                cv2.line(overlay, (0, line_position), (frame.shape[1], line_position), line_color, line_thickness)
+
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             # Detect objects
@@ -86,8 +97,9 @@ def process_frame(cap):
             return frame
     return None
 
+
 def update_frames():
-    frames = [process_frame(cap) for cap in caps]
+    frames = [process_frame(cap, i) for i, cap in enumerate(caps)]
     labels = [label_video1, label_video2, label_video3]
     for frame, label in zip(frames, labels):
         if frame is not None:
@@ -99,12 +111,14 @@ def update_frames():
     # Schedule the next frame update
     root.after(25, update_frames)
 
+
 def load_video(index):
     video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
     if video_path:
         if caps[index] is not None:
             caps[index].release()  # Release previous capture if exists
         caps[index] = cv2.VideoCapture(video_path)
+
 
 # Create buttons to load videos
 button_load1 = Button(root, text="Load Video 1", command=lambda: load_video(0))
