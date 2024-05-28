@@ -51,7 +51,7 @@ def update_frames():
     labels = [label_video1, label_video2, label_video3]
     for frame, label in zip(frames, labels):
         if frame is not None:
-            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
             photo = ImageTk.PhotoImage(image=image)
             label.config(image=photo)
             label.image = photo
