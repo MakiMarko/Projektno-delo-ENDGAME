@@ -34,13 +34,8 @@ def process_frame(cap):
             line_color = (0, 0, 0)
             line_thickness = 2
             alpha = 0.3
-            line_positions = [
-                int(height * 0.9), int(height * 0.8), int(height * 0.7),
-                int(height * 0.6), int(height * 0.5), int(height * 0.4),
-                int(height * 0.3), int(height * 0.2), int(height * 0.1)
-            ]
-            for pos in line_positions:
-                cv2.line(overlay, (0, pos), (frame.shape[1], pos), line_color, line_thickness)
+            line_position = int(height * 0.75)
+            cv2.line(overlay, (0, line_position), (frame.shape[1], line_position), line_color, line_thickness)
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             # Detect objects
