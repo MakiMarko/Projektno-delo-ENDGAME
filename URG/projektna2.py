@@ -153,3 +153,4 @@ def load_images_from_folder(folder):
 
 folder_path = r'C:\University\2. letnik\Uvod v racunalnisko geometrijo\Projektna2\Slike'
 load_images_from_folder(folder_path)
+
