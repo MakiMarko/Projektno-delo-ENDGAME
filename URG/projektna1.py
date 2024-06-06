@@ -326,3 +326,4 @@ if __name__ == "__main__":
 
     pts = np.random.normal(loc=0, scale=2.0, size=(N, 3))
     hull = quickhull()
+    
