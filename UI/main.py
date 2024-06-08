@@ -169,7 +169,7 @@ def process_frame(cap, index):
             else:
                 no_detection_count[index] += 1
                 if no_detection_count[index] >= no_detection_threshold:
-                    update_message("No biker detected", index)
+                    update_message("No biker/cyclist detected", index)
 
             return frame
     return None
