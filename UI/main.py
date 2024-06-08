@@ -42,8 +42,10 @@ label_message3.grid(row=1, column=2)
 
 caps = [None, None, None]
 
+
 def play_sound(sound):
     pygame.mixer.Sound.play(sound)
+
 
 def update_message(msg, index):
     if index == 0:
@@ -53,12 +55,14 @@ def update_message(msg, index):
     elif index == 2:
         label_message3.config(text=msg)
 
+
 def combine_boxes(boxA, boxB):
     x1 = min(boxA[0], boxB[0])
     y1 = min(boxA[1], boxB[1])
     x2 = max(boxA[2], boxB[2])
     y2 = max(boxA[3], boxB[3])
     return x1, y1, x2, y2
+
 
 def intersection_over_union(boxA, boxB):
     xA = max(boxA[0], boxB[0])
@@ -73,6 +77,7 @@ def intersection_over_union(boxA, boxB):
     iou = interArea / float(boxAArea + boxBArea - interArea)
     return iou
 
+
 def check_and_update_status_for_sides(line_position, y2, box_id, index):
     global crossed
     if y2 > line_position:
@@ -83,6 +88,7 @@ def check_and_update_status_for_sides(line_position, y2, box_id, index):
     else:
         update_message("Safe distance", index)
 
+
 def check_and_update_status_for_middle(x1, x2, box_id, line_position_1, line_position_2, index):
     if x1 < line_position_1:
         zone = "Zone 1"
@@ -91,6 +97,7 @@ def check_and_update_status_for_middle(x1, x2, box_id, line_position_1, line_pos
     else:
         zone = "Zone 3"
     update_message(f"Biker in {zone}", index)
+
 
 def process_frame(cap, index):
     global crossed, no_detection_count
@@ -168,7 +175,6 @@ def process_frame(cap, index):
     return None
 
 
-
 def update_frames():
     frames = [process_frame(cap, i) for i, cap in enumerate(caps)]
     labels = [label_video1, label_video2, label_video3]
@@ -180,12 +186,14 @@ def update_frames():
             label.image = photo
     root.after(25, update_frames)
 
+
 def load_video(index):
     video_path = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
     if video_path:
         if caps[index] is not None:
             caps[index].release()
         caps[index] = cv2.VideoCapture(video_path)
+
 
 button_load1 = Button(root, text="Load Video 1", command=lambda: load_video(0))
 button_load1.grid(row=2, column=0, pady=20)
