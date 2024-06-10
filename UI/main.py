@@ -24,6 +24,12 @@ root = Tk()
 root.title("Video Loader")
 root.geometry('1200x500')
 
+style = ttk.Style()
+style.configure('TButton', paddiong=6, relief="flat", background="#ccc", font=('Helvetica', 12))
+style.map('TButton',
+          foreground=[('pressed', 'blue'), ('active', 'blue')],
+          background=[('pressed', '!disabled', 'black'), ('active', 'white')])
+
 # Label to display the video frames
 label_video1 = Label(root)
 label_video1.grid(row=0, column=0)
@@ -199,14 +205,20 @@ def load_video(index):
         caps[index] = cv2.VideoCapture(video_path)
 
 
-button_load1 = Button(root, text="Load Video 1", command=lambda: load_video(0))
-button_load1.grid(row=2, column=0, pady=20)
-button_load2 = Button(root, text="Load Video 2", command=lambda: load_video(1))
-button_load2.grid(row=2, column=1, pady=20)
-button_load3 = Button(root, text="Load Video 3", command=lambda: load_video(2))
-button_load3.grid(row=2, column=2, pady=20)
+button_load1 = ttk.Button(root, text="Load Video 1", style='TButton', command=lambda: load_video(0))
+button_load1.grid(row=2, column=0, pady=20, padx=(50, 25))
+button_load2 = ttk.Button(root, text="Load Video 2", style='TButton', command=lambda: load_video(1))
+button_load2.grid(row=2, column=1, pady=20, padx=25)
+button_load3 = ttk.Button(root, text="Load Video 3", style='TButton', command=lambda: load_video(2))
+button_load3.grid(row=2, column=2, pady=20, padx=(10, 50))
 
-button_start = Button(root, text="Start Videos", command=update_frames)
-button_start.grid(row=3, column=1, pady=20)
+button_start = ttk.Button(root, text="Start Videos", style='TButton', command=update_frames)
+button_start.grid(row=3, column=1, pady=20, padx=50)
+
+# Centered widgets
+root.grid_rowconfigure(1, weight=1)
+root.grid_rowconfigure(3, weight=1)
+root.grid_columnconfigure(0, weight=1)
+root.grid_columnconfigure(3, weight=1)
 
 root.mainloop()
