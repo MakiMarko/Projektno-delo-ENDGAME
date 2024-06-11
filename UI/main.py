@@ -119,12 +119,11 @@ def process_frame(cap, index):
             line_color = (0, 0, 0)
             line_thickness = 2
             alpha = 0.3
-            red_alpha = 0.4  # Transparency factor for red overlay
+            red_alpha = 0.2  # Transparency factor for red overlay
 
-            # Calculate positions for the vertical lines
-            line_position_1 = int(width * 0.33)
-            line_position_2 = int(width * 0.66)
             if index == 1:  # Only for the middle video
+                line_position_1 = int(width * 0.33)
+                line_position_2 = int(width * 0.66)
                 cv2.line(overlay, (line_position_1, 0), (line_position_1, height), line_color, line_thickness)
                 cv2.line(overlay, (line_position_2, 0), (line_position_2, height), line_color, line_thickness)
 
@@ -133,53 +132,52 @@ def process_frame(cap, index):
             results = model.predict(frame, classes=[0, 1, 3])
             person_boxes = []
             ride_boxes = []
-            zones_detected = [False, False, False]
-            message_parts = ["", "", ""]
+            zones_detected = [False] * 3
+            message_parts = [""] * 3
+            any_detection = False
 
             for result in results:
                 for det in result.boxes:
                     bbox = det.xyxy[0].cpu().numpy()
-                    if int(det.cls) == 0:
-                        person_boxes.append(bbox)
-                    elif int(det.cls) in [1, 3]:
-                        ride_boxes.append(bbox)
+                    if int(det.cls) == 0 or int(det.cls) in [1, 3]:
+                        if int(det.cls) == 0:
+                            person_boxes.append(bbox)
+                        elif int(det.cls) in [1, 3]:
+                            ride_boxes.append(bbox)
+                        any_detection = True
 
-            merged_boxes = []
-            for person in person_boxes:
-                for ride in ride_boxes:
-                    if intersection_over_union(person, ride) > 0.1:
-                        combined_box = combine_boxes(person, ride)
-                        merged_boxes.append(combined_box)
+            if any_detection:
+                for person in person_boxes:
+                    for ride in ride_boxes:
+                        if intersection_over_union(person, ride) > 0.1:
+                            combined_box = combine_boxes(person, ride)
+                            if index == 1:
+                                x1, y1, x2, y2 = map(int, combined_box)
+                                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                                # Check for overlap with any part of each zone
+                                if x1 < line_position_1:
+                                    zones_detected[0] = True
+                                    message_parts[0] = "Subject detected in the first part"
+                                if x2 > line_position_1 and x1 < line_position_2:
+                                    zones_detected[1] = True
+                                    message_parts[1] = "Subject detected in the middle part"
+                                if x2 > line_position_2:
+                                    zones_detected[2] = True
+                                    message_parts[2] = "Subject detected in the third part"
 
-            for box in merged_boxes:
-                x1, y1, x2, y2 = map(int, box)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw green contour
-                if x2 < line_position_1:
-                    zones_detected[0] = True
-                    message_parts[0] = "Subject detected in the first part"
-                elif x1 > line_position_1 and x2 < line_position_2:
-                    zones_detected[1] = True
-                    message_parts[1] = "Subject detected in the middle part"
-                elif x1 > line_position_2:
-                    zones_detected[2] = True
-                    message_parts[2] = "Subject detected in the third part"
-
-            # Apply the red overlay to the detected zones
-            for i, zone in enumerate(zones_detected):
-                if zone:
-                    x_start = line_position_1 * i if i > 0 else 0
-                    x_end = line_position_1 * (i + 1) if i < 2 else width
-                    cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
-
-            frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
-
-            final_message = "\n".join(part for part in message_parts if part)
-            if final_message:
-                update_message(final_message, 1)
+                # Apply overlays and update messages based on zones
+                for i, zone in enumerate(zones_detected):
+                    if zone:
+                        x_start = line_position_1 * i if i > 0 else 0
+                        x_end = line_position_1 * (i + 1) if i < 2 else width
+                        cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
+                frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
             else:
-                no_detection_count[index] += 1
-                if no_detection_count[index] >= no_detection_threshold:
+                if index == 1:
                     update_message("No cyclist/biker detected", index)
+            if index == 1:
+                final_message = "\n".join(part for part in message_parts if part)
+                update_message(final_message if final_message else "No cyclist/biker detected", index)
 
             return frame
     return None
@@ -204,13 +202,34 @@ def load_video(index):
             caps[index].release()
         caps[index] = cv2.VideoCapture(video_path)
 
+        if caps[index].isOpened():
+            ret, frame = caps[index].read()  # Read the first frame
+            if index == 2:
+                button_load3.grid(column=2)
+            if ret:  # Check if the frame is read correctly and process the frame if needed
+                frame = cv2.resize(frame, (400, 280))
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert color format for Tkinter compatibility
+                img = Image.fromarray(frame)  # Convert the frame to PIL format
+                imgtk = ImageTk.PhotoImage(image=img)  # Convert to PhotoImage
+
+                # Update the corresponding label to display the frame
+                if index == 0:
+                    label_video1.config(image=imgtk)
+                    label_video1.image = imgtk  # Keep a reference to avoid garbage collection
+                elif index == 1:
+                    label_video2.config(image=imgtk)
+                    label_video2.image = imgtk
+                elif index == 2:
+                    label_video3.config(image=imgtk)
+                    label_video3.image = imgtk
+
 
 button_load1 = ttk.Button(root, text="Load Video 1", style='TButton', command=lambda: load_video(0))
-button_load1.grid(row=2, column=0, pady=20, padx=(50, 25))
+button_load1.grid(row=2, column=0, pady=20)
 button_load2 = ttk.Button(root, text="Load Video 2", style='TButton', command=lambda: load_video(1))
-button_load2.grid(row=2, column=1, pady=20, padx=25)
+button_load2.grid(row=2, column=1, pady=20)
 button_load3 = ttk.Button(root, text="Load Video 3", style='TButton', command=lambda: load_video(2))
-button_load3.grid(row=2, column=2, pady=20, padx=(10, 50))
+button_load3.grid(row=2, column=3, pady=20)
 
 button_start = ttk.Button(root, text="Start Videos", style='TButton', command=update_frames)
 button_start.grid(row=3, column=1, pady=20, padx=50)
