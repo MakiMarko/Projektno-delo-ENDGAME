@@ -107,6 +107,7 @@ def check_and_update_status_for_middle(x1, x2, box_id, line_position_1, line_pos
 
 def process_frame(cap, index):
     global crossed, no_detection_count
+
     if cap is not None and cap.isOpened():
         ret, frame = cap.read()
         if ret:
@@ -121,63 +122,85 @@ def process_frame(cap, index):
             alpha = 0.3
             red_alpha = 0.2  # Transparency factor for red overlay
 
+            line_position_horizontal = int(height * 0.75)
+            line_position_1 = int(width * 0.33)
+            line_position_2 = int(width * 0.66)
             if index == 1:  # Only for the middle video
-                line_position_1 = int(width * 0.33)
-                line_position_2 = int(width * 0.66)
                 cv2.line(overlay, (line_position_1, 0), (line_position_1, height), line_color, line_thickness)
                 cv2.line(overlay, (line_position_2, 0), (line_position_2, height), line_color, line_thickness)
-
+            else:
+                cv2.line(overlay, (0, line_position_horizontal), (width, line_position_horizontal), line_color,
+                         line_thickness)
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             results = model.predict(frame, classes=[0, 1, 3])
             person_boxes = []
-            ride_boxes = []
-            zones_detected = [False] * 3
-            message_parts = [""] * 3
-            any_detection = False
+            bike_boxes = []
+            bicycle_boxes = []
+            zones_detected = [False, False, False]
+            message_parts = ["", "", ""]
 
             for result in results:
                 for det in result.boxes:
                     bbox = det.xyxy[0].cpu().numpy()
-                    if int(det.cls) == 0 or int(det.cls) in [1, 3]:
-                        if int(det.cls) == 0:
-                            person_boxes.append(bbox)
-                        elif int(det.cls) in [1, 3]:
-                            ride_boxes.append(bbox)
-                        any_detection = True
+                    if int(det.cls) == 0:
+                        person_boxes.append(bbox)
+                    elif int(det.cls) in [1, 3]:
+                        if int(det.cls) == 1:
+                            bicycle_boxes.append(bbox)
+                        elif int(det.cls) == 3:
+                            bike_boxes.append(bbox)
 
-            if any_detection:
-                for person in person_boxes:
-                    for ride in ride_boxes:
-                        if intersection_over_union(person, ride) > 0.1:
-                            combined_box = combine_boxes(person, ride)
-                            if index == 1:
-                                x1, y1, x2, y2 = map(int, combined_box)
-                                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                # Check for overlap with any part of each zone
-                                if x1 < line_position_1:
-                                    zones_detected[0] = True
-                                    message_parts[0] = "Subject detected in the first part"
-                                if x2 > line_position_1 and x1 < line_position_2:
-                                    zones_detected[1] = True
-                                    message_parts[1] = "Subject detected in the middle part"
-                                if x2 > line_position_2:
-                                    zones_detected[2] = True
-                                    message_parts[2] = "Subject detected in the third part"
+            merged_boxes = []
+            for person in person_boxes:
+                for bicycle in bicycle_boxes:
+                    if intersection_over_union(person, bicycle) > 0.1:
+                        combined_box = combine_boxes(person, bicycle)
+                        merged_boxes.append(combined_box)
+                        no_detection_count[index] = 0
 
-                # Apply overlays and update messages based on zones
-                for i, zone in enumerate(zones_detected):
-                    if zone:
-                        x_start = line_position_1 * i if i > 0 else 0
-                        x_end = line_position_1 * (i + 1) if i < 2 else width
-                        cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
-                frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
-            else:
+                for bike in bike_boxes:
+                    if intersection_over_union(person, bike) > 0.1:
+                        combined_box = combine_boxes(person, bike)
+                        merged_boxes.append(combined_box)
+                        no_detection_count[index] = 0
+
+            for box in merged_boxes:
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw green contour
+                box_id = id(box)
+
+                if box_id not in crossed:
+                    crossed[box_id] = {'line1': False, 'line2': False}
                 if index == 1:
+                    # Check for overlap with any part of each zone
+                    if x1 < line_position_1:
+                        zones_detected[0] = True
+                        message_parts[0] = "Subject detected in the first part"
+                    if x2 > line_position_1 and x1 < line_position_2:
+                        zones_detected[1] = True
+                        message_parts[1] = "Subject detected in the middle part"
+                    if x2 > line_position_2:
+                        zones_detected[2] = True
+                        message_parts[2] = "Subject detected in the third part"
+                else:
+                    check_and_update_status_for_sides(frame, line_position_horizontal, y2, box_id, index)
+
+            # Apply overlays and update messages based on zones
+            for i, zone in enumerate(zones_detected):
+                if zone:
+                    x_start = line_position_1 * i if i > 0 else 0
+                    x_end = line_position_1 * (i + 1) if i < 2 else width
+                    cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
+            frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
+
+            final_message = "\n".join(part for part in message_parts if part)
+            if final_message:
+                update_message(final_message, 1)
+            else:
+                no_detection_count[index] += 1
+                if no_detection_count[index] >= no_detection_threshold:
                     update_message("No cyclist/biker detected", index)
-            if index == 1:
-                final_message = "\n".join(part for part in message_parts if part)
-                update_message(final_message if final_message else "No cyclist/biker detected", index)
 
             return frame
     return None
