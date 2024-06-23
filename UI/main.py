@@ -48,9 +48,14 @@ label_message3.grid(row=1, column=2)
 
 caps = [None, None, None]
 
+def load_image(file_path):
+    """Load an image from the disk and convert it to a Tkinter compatible format."""
+    image = Image.open(file_path)
+    image = image.resize((35, 35))
+    return ImageTk.PhotoImage(image)
 
 def play_sound(sound):
-    pygame.mixer.Sound.play(sound)
+    pygame.mixer.Sound.play(sound, maxtime=2000, loops=0)
 
 
 def update_message(msg, index):
