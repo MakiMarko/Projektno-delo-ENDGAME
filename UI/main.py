@@ -3,6 +3,7 @@ import cv2
 from PIL import Image, ImageTk
 from ultralytics import YOLO
 import pygame
+from utils import combine_boxes, intersection_over_union
 
 # Initialize the YOLO model
 model = YOLO("yolov8n.pt")
@@ -60,29 +61,6 @@ def update_message(msg, index):
         label_message2.config(text=msg)
     elif index == 2:
         label_message3.config(text=msg)
-
-
-def combine_boxes(boxA, boxB):
-    x1 = min(boxA[0], boxB[0])
-    y1 = min(boxA[1], boxB[1])
-    x2 = max(boxA[2], boxB[2])
-    y2 = max(boxA[3], boxB[3])
-    return x1, y1, x2, y2
-
-
-def intersection_over_union(boxA, boxB):
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    interArea = max(0, xB - xA) * max(0, yB - yA)
-    if interArea == 0:
-        return 0
-    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
-    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-    return iou
-
 
 def check_and_update_status_for_sides(line_position, y2, box_id, index):
     global crossed
