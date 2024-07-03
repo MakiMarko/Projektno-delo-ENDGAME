@@ -1,5 +1,5 @@
 import unittest
-from utils import combine_boxes, intersection_over_union
+from UI.utils import combine_boxes, intersection_over_union
 
 class TestUtils(unittest.TestCase):
     def test_combine_boxes(self):
