@@ -3,14 +3,15 @@ import cv2
 from PIL import Image, ImageTk
 from ultralytics import YOLO
 import pygame
+from utils import combine_boxes, intersection_over_union
 
 # Initialize the YOLO model
 model = YOLO("yolov8n.pt")
 
 pygame.mixer.init()
 # Sound effects paths
-sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
-sound_effect_2 = pygame.mixer.Sound('./sound effects/Tom Screaming Sound Effect (From Tom and Jerry).mp3')
+sound_effect_1 = pygame.mixer.Sound('./sound effects/Airplane_Beep_-_Sound_Effect_HD.mp3')
+
 
 crossed = {}
 
@@ -49,8 +50,15 @@ label_message3.grid(row=1, column=2)
 caps = [None, None, None]
 
 
+def load_image(file_path):
+    """Load an image from the disk and convert it to a Tkinter compatible format."""
+    image = Image.open(file_path)
+    image = image.resize((35, 35))
+    return ImageTk.PhotoImage(image)
+
+
 def play_sound(sound):
-    pygame.mixer.Sound.play(sound)
+    pygame.mixer.Sound.play(sound, maxtime=2000, loops=0)
 
 
 def update_message(msg, index):
@@ -62,33 +70,11 @@ def update_message(msg, index):
         label_message3.config(text=msg)
 
 
-def combine_boxes(boxA, boxB):
-    x1 = min(boxA[0], boxB[0])
-    y1 = min(boxA[1], boxB[1])
-    x2 = max(boxA[2], boxB[2])
-    y2 = max(boxA[3], boxB[3])
-    return x1, y1, x2, y2
-
-
-def intersection_over_union(boxA, boxB):
-    xA = max(boxA[0], boxB[0])
-    yA = max(boxA[1], boxB[1])
-    xB = min(boxA[2], boxB[2])
-    yB = min(boxA[3], boxB[3])
-    interArea = max(0, xB - xA) * max(0, yB - yA)
-    if interArea == 0:
-        return 0
-    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
-    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
-    iou = interArea / float(boxAArea + boxBArea - interArea)
-    return iou
-
-
-def check_and_update_status_for_sides(line_position, y2, box_id, index):
+def check_and_update_status_for_sides(frame,line_position, y2, box_id, index):
     global crossed
     if y2 > line_position:
         if not crossed[box_id]['line1']:
-            play_sound(sound_effect_2)
+            play_sound(sound_effect_1)
             update_message("Danger", index)
             crossed[box_id]['line1'] = True
     else:
@@ -107,6 +93,7 @@ def check_and_update_status_for_middle(x1, x2, box_id, line_position_1, line_pos
 
 def process_frame(cap, index):
     global crossed, no_detection_count
+
     if cap is not None and cap.isOpened():
         ret, frame = cap.read()
         if ret:
@@ -121,78 +108,107 @@ def process_frame(cap, index):
             alpha = 0.3
             red_alpha = 0.2  # Transparency factor for red overlay
 
+            line_position_horizontal = int(height * 0.75)
+            line_position_1 = int(width * 0.33)
+            line_position_2 = int(width * 0.66)
             if index == 1:  # Only for the middle video
-                line_position_1 = int(width * 0.33)
-                line_position_2 = int(width * 0.66)
                 cv2.line(overlay, (line_position_1, 0), (line_position_1, height), line_color, line_thickness)
                 cv2.line(overlay, (line_position_2, 0), (line_position_2, height), line_color, line_thickness)
-
+            else:
+                cv2.line(overlay, (0, line_position_horizontal), (width, line_position_horizontal), line_color,
+                         line_thickness)
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             results = model.predict(frame, classes=[0, 1, 3])
             person_boxes = []
-            ride_boxes = []
-            zones_detected = [False] * 3
-            message_parts = [""] * 3
-            any_detection = False
+            bike_boxes = []
+            bicycle_boxes = []
+            zones_detected = [False, False, False]
+            message_parts = ["", "", ""]
 
             for result in results:
                 for det in result.boxes:
                     bbox = det.xyxy[0].cpu().numpy()
-                    if int(det.cls) == 0 or int(det.cls) in [1, 3]:
-                        if int(det.cls) == 0:
-                            person_boxes.append(bbox)
-                        elif int(det.cls) in [1, 3]:
-                            ride_boxes.append(bbox)
-                        any_detection = True
+                    if int(det.cls) == 0:
+                        person_boxes.append(bbox)
+                    elif int(det.cls) in [1, 3]:
+                        if int(det.cls) == 1:
+                            bicycle_boxes.append(bbox)
+                        elif int(det.cls) == 3:
+                            bike_boxes.append(bbox)
 
-            if any_detection:
-                for person in person_boxes:
-                    for ride in ride_boxes:
-                        if intersection_over_union(person, ride) > 0.1:
-                            combined_box = combine_boxes(person, ride)
-                            if index == 1:
-                                x1, y1, x2, y2 = map(int, combined_box)
-                                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                # Check for overlap with any part of each zone
-                                if x1 < line_position_1:
-                                    zones_detected[0] = True
-                                    message_parts[0] = "Subject detected in the first part"
-                                if x2 > line_position_1 and x1 < line_position_2:
-                                    zones_detected[1] = True
-                                    message_parts[1] = "Subject detected in the middle part"
-                                if x2 > line_position_2:
-                                    zones_detected[2] = True
-                                    message_parts[2] = "Subject detected in the third part"
+            merged_boxes = []
+            for person in person_boxes:
+                for bicycle in bicycle_boxes:
+                    if intersection_over_union(person, bicycle) > 0.1:
+                        combined_box = combine_boxes(person, bicycle)
+                        merged_boxes.append(combined_box)
+                        no_detection_count[index] = 0
 
-                # Apply overlays and update messages based on zones
-                for i, zone in enumerate(zones_detected):
-                    if zone:
-                        x_start = line_position_1 * i if i > 0 else 0
-                        x_end = line_position_1 * (i + 1) if i < 2 else width
-                        cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
-                frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
-            else:
+                for bike in bike_boxes:
+                    if intersection_over_union(person, bike) > 0.1:
+                        combined_box = combine_boxes(person, bike)
+                        merged_boxes.append(combined_box)
+                        no_detection_count[index] = 0
+
+            for box in merged_boxes:
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Draw green contour
+                box_id = id(box)
+
+                if box_id not in crossed:
+                    crossed[box_id] = {'line1': False, 'line2': False}
                 if index == 1:
+                    # Check for overlap with any part of each zone
+                    if x1 < line_position_1:
+                        zones_detected[0] = True
+                        message_parts[0] = "Subject detected in the first part"
+                    if x2 > line_position_1 and x1 < line_position_2:
+                        zones_detected[1] = True
+                        message_parts[1] = "Subject detected in the middle part"
+                    if x2 > line_position_2:
+                        zones_detected[2] = True
+                        message_parts[2] = "Subject detected in the third part"
+                else:
+                    check_and_update_status_for_sides(frame, line_position_horizontal, y2, box_id, index)
+
+            # Apply overlays and update messages based on zones
+            for i, zone in enumerate(zones_detected):
+                if zone:
+                    x_start = line_position_1 * i if i > 0 else 0
+                    x_end = line_position_1 * (i + 1) if i < 2 else width
+                    cv2.rectangle(red_overlay, (x_start, 0), (x_end, height), (0, 0, 255), -1)
+            frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
+
+            final_message = "\n".join(part for part in message_parts if part)
+            if final_message:
+                update_message(final_message, 1)
+            else:
+                no_detection_count[index] += 1
+                if no_detection_count[index] >= no_detection_threshold:
                     update_message("No cyclist/biker detected", index)
-            if index == 1:
-                final_message = "\n".join(part for part in message_parts if part)
-                update_message(final_message if final_message else "No cyclist/biker detected", index)
 
             return frame
     return None
 
 
 def update_frames():
-    frames = [process_frame(cap, i) for i, cap in enumerate(caps)]
+    global playing  # Dodajte referenco na globalno spremenljivko playing
+    frames = [process_frame(cap, i) if playing[i] else None for i, cap in enumerate(caps)]
     labels = [label_video1, label_video2, label_video3]
+    active = False  # Spremenljivka za sledenje, če je katerikoli video aktiven
     for frame, label in zip(frames, labels):
         if frame is not None:
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             photo = ImageTk.PhotoImage(image=image)
             label.config(image=photo)
-            label.image = photo
-    root.after(25, update_frames)
+            label.image = photo  # Shranjevanje reference na sliko
+            active = True  # Označimo, da je video še vedno aktiven
+
+    # Ponovno pokličemo funkcijo update_frames po 25 milisekundah, če je katerikoli video aktiven
+    if active:
+        root.after(25, update_frames)
+
 
 
 def load_video(index):
@@ -201,6 +217,7 @@ def load_video(index):
         if caps[index] is not None:
             caps[index].release()
         caps[index] = cv2.VideoCapture(video_path)
+        playing[index] = False  # Ensure the video is paused initially
 
         if caps[index].isOpened():
             ret, frame = caps[index].read()  # Read the first frame
@@ -211,6 +228,9 @@ def load_video(index):
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert color format for Tkinter compatibility
                 img = Image.fromarray(frame)  # Convert the frame to PIL format
                 imgtk = ImageTk.PhotoImage(image=img)  # Convert to PhotoImage
+                labels[index].config(image=imgtk)
+                labels[index].image = imgtk  # Keep a reference to avoid garbage collection
+                play_pause_button.config(image=play_icon)
 
                 # Update the corresponding label to display the frame
                 if index == 0:
@@ -224,15 +244,46 @@ def load_video(index):
                     label_video3.image = imgtk
 
 
-button_load1 = ttk.Button(root, text="Load Video 1", style='TButton', command=lambda: load_video(0))
-button_load1.grid(row=2, column=0, pady=20)
-button_load2 = ttk.Button(root, text="Load Video 2", style='TButton', command=lambda: load_video(1))
-button_load2.grid(row=2, column=1, pady=20)
-button_load3 = ttk.Button(root, text="Load Video 3", style='TButton', command=lambda: load_video(2))
-button_load3.grid(row=2, column=3, pady=20)
+play_icon = load_image("blue_play.png")
+pause_icon = load_image("blue_pause.png")
+# Video play state tracking
+playing = [False, False, False]
+caps = [None, None, None]
+labels = [label_video1, label_video2, label_video3]
 
-button_start = ttk.Button(root, text="Start Videos", style='TButton', command=update_frames)
-button_start.grid(row=3, column=1, pady=20, padx=50)
+
+def toggle_video():
+    global playing, caps
+    # Check if all videos are currently paused
+    if all(not p for p in playing):
+        # Start all videos
+        for i in range(len(caps)):
+            if caps[i] is not None:
+                playing[i] = True
+        play_pause_button.config(image=pause_icon)
+        update_frames()
+    else:
+        # Pause all videos
+        for i in range(len(caps)):
+            playing[i] = False
+        play_pause_button.config(image=play_icon)
+
+
+button_load1 = ttk.Button(root, text="Load Video 1", style='TButton', command=lambda: load_video(0))
+button_load1.grid(row=3, column=0, pady=(10, 5))
+button_load2 = ttk.Button(root, text="Load Video 2", style='TButton', command=lambda: load_video(1))
+button_load2.grid(row=3, column=1, pady=(10, 5))
+button_load3 = ttk.Button(root, text="Load Video 3", style='TButton', command=lambda: load_video(2))
+button_load3.grid(row=3, column=3, pady=(10, 5))
+
+buttons = []
+label_videos = [label_video1, label_video2, label_video3]
+
+play_pause_button = ttk.Button(root, image=play_icon, style='TButton', command=toggle_video)
+play_pause_button.grid(row=2, column=1, pady=20, padx=50)
+
+button_start = ttk.Button(root, text="Start Videos", style='TButton', command=toggle_video)
+button_start.grid(row=4, column=1, pady=20, padx=50)
 
 # Centered widgets
 root.grid_rowconfigure(1, weight=1)
