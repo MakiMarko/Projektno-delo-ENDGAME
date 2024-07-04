@@ -9,6 +9,17 @@ from skimage.morphology import dilation, erosion
 model = YOLO("yolov8x.pt")  # Adjust the model path and version as necessary
 
 
+def preprocess_image(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe_img = clahe.apply(gray)
+    edges = feature.canny(clahe_img, sigma=1, low_threshold=10, high_threshold=50)
+    edges = edges.astype(np.uint8) * 255  # Convert edges to uint8 type
+    dilated = dilation(edges, morphology.square(3))
+    eroded = erosion(dilated, morphology.square(3))
+    return eroded
+
+
 def resize_image(image, target_size=640):
     h, w = image.shape[:2]
     scale = target_size / max(h, w)
@@ -18,6 +29,14 @@ def resize_image(image, target_size=640):
     top, left = (target_size - new_h) // 2, (target_size - new_w) // 2
     final_image[top:top + new_h, left:left + new_w] = resized_image
     return final_image
+
+
+def combine_boxes(boxA, boxB):
+    x1 = min(boxA[0], boxB[0])
+    y1 = min(boxA[1], boxB[1])
+    x2 = max(boxA[2], boxB[2])
+    y2 = max(boxA[3], boxB[3])
+    return x1, y1, x2, y2
 
 
 def intersection_over_union(boxA, boxB):
@@ -34,29 +53,10 @@ def intersection_over_union(boxA, boxB):
     return iou
 
 
-def preprocess_image(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    clahe_img = clahe.apply(gray)
-    edges = feature.canny(clahe_img, sigma=1, low_threshold=10, high_threshold=50)
-    edges = edges.astype(np.uint8) * 255  # Convert edges to uint8 type
-    dilated = dilation(edges, morphology.square(3))
-    eroded = erosion(dilated, morphology.square(3))
-    return eroded
-
-
 def find_contours(image):
     processed = preprocess_image(image)
     contours, _ = cv2.findContours(processed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return contours
-
-
-def combine_boxes(boxA, boxB):
-    x1 = min(boxA[0], boxB[0])
-    y1 = min(boxA[1], boxB[1])
-    x2 = max(boxA[2], boxB[2])
-    y2 = max(boxA[3], boxB[3])
-    return x1, y1, x2, y2
 
 
 def grabcut_segmentation(image, rect):
