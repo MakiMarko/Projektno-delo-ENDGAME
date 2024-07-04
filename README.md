@@ -1,5 +1,5 @@
 # Project: Cyclist and Motorist Detection System
-Artificial intelligence in autonomous driving
+## Artificial intelligence in autonomous driving
 
 Project group: ENDGAME
 
