@@ -244,6 +244,15 @@ def load_video(index):
                     label_video3.image = imgtk
 
 
+def remove_video(index):
+    if caps[index] is not None:
+        caps[index].release()
+        caps[index] = None
+    labels[index].config(image="")
+    labels[index].image = None
+    update_message("", index)
+
+
 play_icon = load_image("blue_play.png")
 pause_icon = load_image("blue_pause.png")
 # Video play state tracking
@@ -274,7 +283,14 @@ button_load1.grid(row=3, column=0, pady=(10, 5))
 button_load2 = ttk.Button(root, text="Load Video 2", style='TButton', command=lambda: load_video(1))
 button_load2.grid(row=3, column=1, pady=(10, 5))
 button_load3 = ttk.Button(root, text="Load Video 3", style='TButton', command=lambda: load_video(2))
-button_load3.grid(row=3, column=3, pady=(10, 5))
+button_load3.grid(row=3, column=2, pady=(10, 5))
+
+button_remove1 = ttk.Button(root, text="Remove Video 1", style='TButton', command=lambda: remove_video(0))
+button_remove1.grid(row=4, column=0, pady=(10, 5))
+button_remove2 = ttk.Button(root, text="Remove Video 2", style='TButton', command=lambda: remove_video(1))
+button_remove2.grid(row=4, column=1, pady=(10, 5))
+button_remove3 = ttk.Button(root, text="Remove Video 3", style='TButton', command=lambda: remove_video(2))
+button_remove3.grid(row=4, column=2, pady=(10, 5))
 
 buttons = []
 label_videos = [label_video1, label_video2, label_video3]
@@ -283,12 +299,13 @@ play_pause_button = ttk.Button(root, image=play_icon, style='TButton', command=t
 play_pause_button.grid(row=2, column=1, pady=20, padx=50)
 
 button_start = ttk.Button(root, text="Start Videos", style='TButton', command=toggle_video)
-button_start.grid(row=4, column=1, pady=20, padx=50)
+button_start.grid(row=5, column=1, pady=20, padx=50)
 
 # Centered widgets
 root.grid_rowconfigure(1, weight=1)
 root.grid_rowconfigure(3, weight=1)
 root.grid_columnconfigure(0, weight=1)
 root.grid_columnconfigure(3, weight=1)
+root.grid_columnconfigure(2, weight=1)
 
 root.mainloop()
