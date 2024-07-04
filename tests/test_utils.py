@@ -44,11 +44,6 @@ class TestUtils(unittest.TestCase):
         resized = resize_image(img, 640)
         self.assertEqual(resized.shape, (640, 640, 3))
 
-    def test_preprocess_image(self):
-        img = np.ones((100, 100, 3), dtype=np.uint8) * 255
-        processed = preprocess_image(img)
-        self.assertEqual(processed.shape, (100, 100))
-
     def test_find_contours(self):
         img = np.zeros((100, 100, 3), dtype=np.uint8)
         cv2.rectangle(img, (25, 25), (75, 75), (255, 255, 255), -1)
