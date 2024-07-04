@@ -40,7 +40,47 @@ class Triangle:
         return hash(self.vertices)
 
 
+def initial_tetrahedron(points):
+    if len(points) < 4:
+        return points
 
+    # Determine extreme points along each axis
+    min_indices = np.argmin(points, axis=0)
+    max_indices = np.argmax(points, axis=0)
+    extremes = np.concatenate((min_indices, max_indices))
+
+    def furthest_point(p1, p_set):
+        distances = np.linalg.norm(points[p_set] - points[p1], axis=1)
+        return p_set[np.argmax(distances)]
+
+    furthest_point(0, extremes)
+
+    # Initialize the tetrahedron with the two most distant extreme points
+    p1, p2 = np.meshgrid(extremes, extremes)
+    distances = np.linalg.norm(points[p2] - points[p1], axis=2)
+    i, j = np.unravel_index(np.argmax(distances), distances.shape)
+    tetrahedron = [int(extremes[i]), int(extremes[j])]
+    p1, p2 = tetrahedron
+
+    # Remove chosen points from extremes
+    extremes = np.setdiff1d(extremes, tetrahedron)
+
+    # Select third point, maximizing distance from the line formed by p1 and p2
+    directional_vector = points[p2] - points[p1]
+    distances = np.linalg.norm(np.cross(points[extremes] - points[p1], directional_vector), axis=1) / np.linalg.norm(
+        directional_vector)
+    p3 = extremes[np.argmax(distances)]
+    tetrahedron.append(int(p3))
+
+    extremes = np.setdiff1d(extremes, [p3])  # Remove p3
+
+    # Select fourth point, maximizing distance from the plane formed by p1, p2, and p3
+    plane_normal = np.cross(points[p2] - points[p1], points[p3] - points[p1])
+    distances = np.abs(np.dot(points - points[p1], plane_normal)) / np.linalg.norm(plane_normal)
+    p4 = np.argmax(distances)
+    tetrahedron.append(int(p4))
+
+    return tetrahedron
 
 
 def update_triangle_pos_plane(triangles, pts):
