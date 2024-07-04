@@ -91,66 +91,66 @@ def graham_scan(points):
 
     return lower[:-1] + upper[:-1]
 
+# Ensure that file-specific code doesn't run during imports
+if __name__ == "__main__":
+    def process_image(img_path):
+        img = cv2.imread(img_path)
+        if img is None:
+            return None
+        img = resize_image(img)
+        results = model.predict(img, classes=[0, 1, 3])  # 0=person, 1=bicycle, 3=motorcycle
+        overlay = img.copy()
 
-def process_image(img_path):
-    img = cv2.imread(img_path)
-    if img is None:
-        return None
-    img = resize_image(img)
-    results = model.predict(img, classes=[0, 1, 3])  # 0=person, 1=bicycle, 3=motorcycle
-    overlay = img.copy()
+        person_boxes = []
+        ride_boxes = []
 
-    person_boxes = []
-    ride_boxes = []
+        for result in results:
+            for det in result.boxes:
+                bbox = det.xyxy[0].cpu().numpy()
+                if int(det.cls) == 0:
+                    person_boxes.append(bbox)
+                elif int(det.cls) in [1, 3]:
+                    ride_boxes.append(bbox)
 
-    for result in results:
-        for det in result.boxes:
-            bbox = det.xyxy[0].cpu().numpy()
-            if int(det.cls) == 0:
-                person_boxes.append(bbox)
-            elif int(det.cls) in [1, 3]:
-                ride_boxes.append(bbox)
+        for person in person_boxes:
+            for ride in ride_boxes:
+                if intersection_over_union(person, ride) > 0.1:
+                    combined_box = combine_boxes(person, ride)
+                    x1, y1, x2, y2 = map(int, combined_box)
 
-    for person in person_boxes:
-        for ride in ride_boxes:
-            if intersection_over_union(person, ride) > 0.1:
-                combined_box = combine_boxes(person, ride)
-                x1, y1, x2, y2 = map(int, combined_box)
+                    # Apply GrabCut for background removal
+                    rect = (x1, y1, x2 - x1, y2 - y1)
+                    segmented_img = grabcut_segmentation(img, rect)
+                    crop_segmented = segmented_img[y1:y2, x1:x2]
 
-                # Apply GrabCut for background removal
-                rect = (x1, y1, x2 - x1, y2 - y1)
-                segmented_img = grabcut_segmentation(img, rect)
-                crop_segmented = segmented_img[y1:y2, x1:x2]
+                    contours = find_contours(crop_segmented)
+                    hull_points = []
+                    for contour in contours:
+                        if cv2.contourArea(contour) > 50:  # Increased the threshold to reduce noise
+                            mapped_contour = contour + np.array([[x1, y1]])
+                            hull_points.extend(mapped_contour)
+                    if hull_points:
+                        hull_points = np.array(hull_points).reshape(-1, 2)
+                        hull = graham_scan(hull_points.tolist())
+                        for i in range(len(hull)):
+                            pt1 = tuple(hull[i])
+                            pt2 = tuple(hull[(i + 1) % len(hull)])
+                            cv2.line(overlay, pt1, pt2, (0, 255, 0), 2)  # Draw line with green color
 
-                contours = find_contours(crop_segmented)
-                hull_points = []
-                for contour in contours:
-                    if cv2.contourArea(contour) > 50:  # Increased the threshold to reduce noise
-                        mapped_contour = contour + np.array([[x1, y1]])
-                        hull_points.extend(mapped_contour)
-                if hull_points:
-                    hull_points = np.array(hull_points).reshape(-1, 2)
-                    hull = graham_scan(hull_points.tolist())
-                    for i in range(len(hull)):
-                        pt1 = tuple(hull[i])
-                        pt2 = tuple(hull[(i + 1) % len(hull)])
-                        cv2.line(overlay, pt1, pt2, (0, 255, 0), 2)  # Draw line with green color
+        final_image = cv2.addWeighted(overlay, 0.6, img, 0.4, 0)
+        return final_image
 
-    final_image = cv2.addWeighted(overlay, 0.6, img, 0.4, 0)
-    return final_image
+    def load_images_from_folder(folder):
+        for filename in os.listdir(folder):
+            if filename.lower().endswith(('.png', '.jpg')):
+                img_path = os.path.join(folder, filename)
+                processed_img = process_image(img_path)
+                if processed_img is not None:
+                    cv2.imshow("Processed Image", processed_img)
+                    cv2.waitKey(0)  # Wait for a key press to show the next image
+        cv2.destroyAllWindows()
 
+    folder_path = r'C:\University\2. letnik\Uvod v racunalnisko geometrijo\Projektna2\Slike'
+    load_images_from_folder(folder_path)
 
-def load_images_from_folder(folder):
-    for filename in os.listdir(folder):
-        if filename.lower().endswith(('.png', '.jpg')):
-            img_path = os.path.join(folder, filename)
-            processed_img = process_image(img_path)
-            if processed_img is not None:
-                cv2.imshow("Processed Image", processed_img)
-                cv2.waitKey(0)  # Wait for a key press to show the next image
-    cv2.destroyAllWindows()
-
-
-folder_path = r'C:\University\2. letnik\Uvod v racunalnisko geometrijo\Projektna2\Slike'
-load_images_from_folder(folder_path)
 
