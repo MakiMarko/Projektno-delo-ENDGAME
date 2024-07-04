@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 from UI.utils import combine_boxes, intersection_over_union
 from URG.projektna2 import preprocess_image, find_contours, grabcut_segmentation, graham_scan, resize_image
+
 # Dummy data for tests
 pts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
@@ -43,6 +44,11 @@ class TestUtils(unittest.TestCase):
         img = np.ones((800, 600, 3), dtype=np.uint8)
         resized = resize_image(img, 640)
         self.assertEqual(resized.shape, (640, 640, 3))
+
+    def test_preprocess_image(self):
+        img = np.ones((100, 100, 3), dtype=np.uint8) * 255
+        processed = preprocess_image(img)
+        self.assertEqual(processed.shape, (100, 100))
 
     def test_find_contours(self):
         img = np.zeros((100, 100, 3), dtype=np.uint8)
