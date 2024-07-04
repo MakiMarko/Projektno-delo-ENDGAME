@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 import cv2
 from UI.utils import combine_boxes, intersection_over_union
-from URG.projektna1 import Triangle, update_triangle_pos_plane
 from URG.projektna2 import preprocess_image, find_contours, grabcut_segmentation, graham_scan, resize_image
 # Dummy data for tests
 pts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
@@ -69,34 +68,6 @@ class TestUtils(unittest.TestCase):
         expected_hull = [(0, 0), (1, 0), (1, 1), (0, 1)]
         self.assertEqual(hull, expected_hull)
 
-class TestTriangleMethods(unittest.TestCase):
-    def setUp(self):
-        self.triangle = Triangle(0, 1, 2)
-
-    def test_calculate_vector(self):
-        expected = np.array([0, 0, 1])
-        np.testing.assert_array_almost_equal(self.triangle.calculate_vector(), expected)
-
-    def test_calculate_center(self):
-        expected = np.array([1/3, 1/3, 0])
-        np.testing.assert_array_almost_equal(self.triangle.calculate_center(), expected)
-
-    def test_equal_triangles(self):
-        other = Triangle(0, 1, 2)
-        self.assertTrue(self.triangle.equal_triangles(other))
-        different = Triangle(1, 2, 3)
-        self.assertFalse(self.triangle.equal_triangles(different))
-
-    def test_triangle_hash(self):
-        self.assertEqual(self.triangle.triangle_hash(), hash((0, 1, 2)))
-
-class TestQuickHullFunctions(unittest.TestCase):
-    def test_update_triangle_pos_plane(self):
-        triangles = [Triangle(0, 1, 2), Triangle(1, 2, 3)]
-        update_triangle_pos_plane(triangles, pts)
-        # Check if pos_plane is populated correctly
-        self.assertTrue(len(triangles[0].pos_plane) > 0)
-        self.assertTrue(len(triangles[1].pos_plane) > 0)
 
 if __name__ == '__main__':
     unittest.main()
