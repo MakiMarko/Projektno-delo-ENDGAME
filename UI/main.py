@@ -7,12 +7,11 @@ import pygame
 from utils import combine_boxes, intersection_over_union
 
 # Initialize the YOLO model
-model = YOLO("yolov8n.pt")
+model = YOLO("yolo11n.pt")
 
 pygame.mixer.init()
 # Sound effects paths
 sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
-
 
 crossed = {}
 
