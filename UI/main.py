@@ -1,5 +1,6 @@
 from tkinter import Tk, ttk, Button, Label, filedialog
 import cv2
+#sift = cv2.xfeatures2d.SIFT_create()
 from PIL import Image, ImageTk
 from ultralytics import YOLO
 import pygame
@@ -10,7 +11,7 @@ model = YOLO("yolov8n.pt")
 
 pygame.mixer.init()
 # Sound effects paths
-sound_effect_1 = pygame.mixer.Sound('./sound effects/Airplane_Beep_-_Sound_Effect_HD.mp3')
+sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
 
 
 crossed = {}
@@ -97,12 +98,15 @@ def process_frame(cap, index):
     if cap is not None and cap.isOpened():
         ret, frame = cap.read()
         if ret:
+            # Crop the top 10% of the frame and resize it to 400x280
             cropped_height = int(frame.shape[0] * 0.9)
             frame = frame[:cropped_height, :]
             frame = cv2.resize(frame, (400, 280))
             height, width = frame.shape[0], frame.shape[1]
+            # Create an overlay to display the zones
             overlay = frame.copy()
             red_overlay = frame.copy()
+            # Draw lines to divide the frame into zones
             line_color = (0, 0, 0)
             line_thickness = 2
             alpha = 0.3
@@ -118,7 +122,7 @@ def process_frame(cap, index):
                 cv2.line(overlay, (0, line_position_horizontal), (width, line_position_horizontal), line_color,
                          line_thickness)
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-
+            
             results = model.predict(frame, classes=[0, 1, 3])
             person_boxes = []
             bike_boxes = []
@@ -253,9 +257,9 @@ def remove_video(index):
     update_message("", index)
 
 
-play_icon = load_image("blue_play.png")
-pause_icon = load_image("blue_pause.png")
-bin_icon = load_image("bin.png")
+play_icon = load_image("./Images/blue_play.jpg")
+pause_icon = load_image("./Images/blue_pause.png")
+bin_icon = load_image("./Images/bin.png")
 # Video play state tracking
 playing = [False, False, False]
 caps = [None, None, None]
