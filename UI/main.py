@@ -5,13 +5,15 @@ from PIL import Image, ImageTk
 from ultralytics import YOLO
 import pygame
 from utils import combine_boxes, intersection_over_union
+import image_compression
+import os
 
 # Initialize the YOLO model
 model = YOLO("yolo11n.pt")
 
 pygame.mixer.init()
 # Sound effects paths
-sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
+#sound_effect_1 = pygame.mixer.Sound('./sound effects/Danger Alarm Sound Effect.mp3')
 
 crossed = {}
 
@@ -47,6 +49,7 @@ label_message2.grid(row=1, column=1)
 label_message3 = Label(root, text="")
 label_message3.grid(row=1, column=2)
 
+
 caps = [None, None, None]
 
 
@@ -60,6 +63,32 @@ def load_image(file_path):
 def play_sound(sound):
     pygame.mixer.Sound.play(sound, maxtime=2000, loops=0)
 
+output_dir = "saved_images"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+detected_frame_count = [0, 0, 0]
+
+def save_screenshot(frame, index):
+    image_path = os.path.join(output_dir, f"frame_{detected_frame_count[index]}.bmp")
+    cv2.imwrite(image_path, frame)  # Save the frame as a BMP image
+
+    # Use your image compression algorithm to compress the image
+    image_data = image_compression.IZ_BMP_V_2D(image_path)
+
+    compressed_path = os.path.join(output_dir, f"frame_{detected_frame_count[index]}_compressed.bin")
+
+    # Compress the image data
+    image_compression.KOMPRESIJA(image_data, compressed_path)
+
+    # Decompress the image data
+    decompressed_image = image_compression.BERI_IZ_BIN_FILE(compressed_path)
+
+    # Save the decompressed image as a BMP file
+    _, _, p = image_compression.DEKOMPRESIRAJ(decompressed_image)
+
+    image_output_path = os.path.join(output_dir, f"frame_{detected_frame_count[index]}_decompressed.bmp")
+    image_compression.DATA_V_BMP(p, image_output_path)
 
 def update_message(msg, index):
     if index == 0:
@@ -74,7 +103,7 @@ def check_and_update_status_for_sides(frame,line_position, y2, box_id, index):
     global crossed
     if y2 > line_position:
         if not crossed[box_id]['line1']:
-            play_sound(sound_effect_1)
+            #play_sound(sound_effect_1, volume=0.5)
             update_message("Danger", index)
             crossed[box_id]['line1'] = True
     else:
@@ -89,6 +118,7 @@ def check_and_update_status_for_middle(x1, x2, box_id, line_position_1, line_pos
     else:
         zone = "Zone 3"
     update_message(f"Biker in {zone}", index)
+
 
 
 def process_frame(cap, index):
@@ -184,8 +214,12 @@ def process_frame(cap, index):
             frame = cv2.addWeighted(red_overlay, red_alpha, frame, 1 - red_alpha, 0)
 
             final_message = "\n".join(part for part in message_parts if part)
+            
             if final_message:
                 update_message(final_message, 1)
+                detected_frame_count[index] += 1
+                if detected_frame_count[index] % 10 == 0:
+                    save_screenshot(frame, index)
             else:
                 no_detection_count[index] += 1
                 if no_detection_count[index] >= no_detection_threshold:
@@ -261,7 +295,7 @@ pause_icon = load_image("./Images/blue_pause.png")
 bin_icon = load_image("./Images/bin.png")
 # Video play state tracking
 playing = [False, False, False]
-caps = [None, None, None]
+#caps = [None, None, None]
 labels = [label_video1, label_video2, label_video3]
 
 
