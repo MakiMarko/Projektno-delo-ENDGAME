@@ -50,7 +50,6 @@ def send_to_yolo(image, timestamp):
 def on_message(client, userdata, msg):
     # This callback is triggered when a message is received on a subscribed topic.
     #print(f"Received message on {msg.topic}")
-    
     try:
         payload = json.loads(msg.payload.decode('utf-8'))
         #print(f"Received payload: {payload}") 

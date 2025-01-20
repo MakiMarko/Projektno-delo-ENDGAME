@@ -49,7 +49,6 @@ def process_frame(image):
     return None, []
 
 
-
 if __name__ == '__main__':
     image = cv2.imread('screenshot_26.png')  # Load your image (replace with actual path)
     processed_image, detection_coords = process_frame(image)
