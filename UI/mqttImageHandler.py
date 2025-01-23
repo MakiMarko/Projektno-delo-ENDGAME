@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import json
 
+
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, reason_code, properties):
     # This callback is triggered upon successful connection.
